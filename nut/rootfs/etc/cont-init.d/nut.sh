@@ -11,10 +11,31 @@ declare shutdowncmd
 declare upsmonpwd
 declare username
 
-# Debug: Output full configuration
-bashio::log.info "=== Full addon configuration ==="
-bashio::log.info "$(bashio::config)"
-bashio::log.info "=== End of configuration ==="
+# Debug: Output configuration
+bashio::log.info "=== Addon configuration debug ==="
+if [ -f /data/options.json ]; then
+    bashio::log.info "Configuration file exists: /data/options.json"
+    bashio::log.info "Configuration content:"
+    cat /data/options.json | while IFS= read -r line; do
+        bashio::log.info "  ${line}"
+    done
+else
+    bashio::log.warning "Configuration file /data/options.json not found!"
+fi
+
+# Output key configuration values
+bashio::log.info "Key config values:"
+bashio::log.info "  mode: $(bashio::config 'mode' 2>/dev/null || echo 'not set')"
+bashio::log.info "  shutdown_host: $(bashio::config 'shutdown_host' 2>/dev/null || echo 'not set')"
+if bashio::config.has_value "devices"; then
+    bashio::log.info "  devices count: $(bashio::config "devices|length" 2>/dev/null || echo 'unknown')"
+    for device in $(bashio::config "devices|keys" 2>/dev/null); do
+        bashio::log.info "    device[${device}]: name=$(bashio::config "devices[${device}].name" 2>/dev/null), driver=$(bashio::config "devices[${device}].driver" 2>/dev/null)"
+    done
+else
+    bashio::log.info "  devices: not set"
+fi
+bashio::log.info "=== End of configuration debug ==="
 
 chown root:root /var/run/nut
 chmod 0770 /var/run/nut
@@ -72,13 +93,48 @@ if bashio::config.equals 'mode' 'netserver' ;then
     echo "MONITOR myups@localhost 1 upsmonmaster ${upsmonpwd} master" \
         >> /etc/nut/upsmon.conf
 
-    bashio::log.info "Starting the UPS drivers..."
-    # Run upsdrvctl and capture exit code
-    driver_exit_code=0
-    if bashio::debug; then
-        upsdrvctl -u root -D start || driver_exit_code=$?
+    # Debug: Check if driver exists
+    bashio::log.info "Checking for nutdrv_qx driver..."
+    if [ -f /usr/lib/nut/nutdrv_qx ] || [ -f /usr/libexec/nut/nutdrv_qx ] || [ -f /usr/bin/nutdrv_qx ]; then
+        bashio::log.info "Driver nutdrv_qx found"
+        find /usr -name "nutdrv_qx" 2>/dev/null | head -3 | while IFS= read -r driver_path; do
+            bashio::log.info "  Found at: ${driver_path}"
+        done
     else
-        upsdrvctl -u root start || driver_exit_code=$?
+        bashio::log.error "Driver nutdrv_qx NOT FOUND in standard locations!"
+        bashio::log.info "Searching for nutdrv_qx in /usr..."
+        find /usr -name "nutdrv_qx" 2>/dev/null | head -5 | while IFS= read -r driver_path; do
+            bashio::log.info "  Found at: ${driver_path}"
+        done || bashio::log.warning "  No nutdrv_qx driver found anywhere in /usr"
+    fi
+
+    # Debug: Output UPS configuration file content
+    bashio::log.info "UPS configuration file (/etc/nut/ups.conf) content:"
+    while IFS= read -r line; do
+        bashio::log.info "  ${line}"
+    done < /etc/nut/ups.conf
+
+    bashio::log.info "Starting the UPS drivers with maximum debug output..."
+    # Run upsdrvctl with maximum debug and capture all output
+    driver_exit_code=0
+    {
+        upsdrvctl -u root -DDDDD start 2>&1
+        driver_exit_code=${PIPESTATUS[0]}
+    } | while IFS= read -r line; do
+        bashio::log.info "DRIVER: ${line}"
+    done
+    
+    # Check if driver socket was created
+    bashio::log.info "Checking for driver socket..."
+    if [ -S /run/nut/nutdrv_qx-myups ]; then
+        bashio::log.info "Driver socket created successfully: /run/nut/nutdrv_qx-myups"
+        ls -la /run/nut/nutdrv_qx-myups
+    else
+        bashio::log.warning "Driver socket NOT found: /run/nut/nutdrv_qx-myups"
+        bashio::log.info "Contents of /run/nut/ directory:"
+        ls -la /run/nut/ 2>/dev/null | while IFS= read -r line; do
+            bashio::log.info "  ${line}"
+        done || bashio::log.warning "  Directory /run/nut/ not accessible or empty"
     fi
     
     # If driver failed, log warning but continue
@@ -88,6 +144,7 @@ if bashio::config.equals 'mode' 'netserver' ;then
         bashio::log.warning "1. USB device not connected or not recognized"
         bashio::log.warning "2. Insufficient permissions to access USB device"
         bashio::log.warning "3. Wrong driver or port configuration"
+        bashio::log.warning "4. Driver nutdrv_qx not compatible with this UPS model"
         bashio::log.warning "Please check your USB connection and addon configuration."
         bashio::log.warning "Addon will continue to run, but UPS monitoring may not work."
         bashio::log.warning "To debug, enable 'list_usb_devices: true' in addon configuration."
