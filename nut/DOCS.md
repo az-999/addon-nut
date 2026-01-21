@@ -177,7 +177,16 @@ devices:
     port: auto
     config:
       - product = ".*(Smart|Back)-?UPS.*"
+  - name: richcomm
+    driver: nutdrv_qx
+    port: auto
+    config:
+      - vendorid = 0925
+      - productid = 1234
+      - subdriver = armac
 ```
+
+**Note**: Some UPS models (like RICHCOMM UPS USB Mon V2.0) require the `nutdrv_qx` driver instead of `usbhid-ups`. Check the [NUT Hardware Compatibility List][nut-compatible] for your specific UPS model to determine the correct driver.
 
 ### Option: `mode`
 

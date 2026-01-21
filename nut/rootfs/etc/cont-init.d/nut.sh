@@ -11,6 +11,11 @@ declare shutdowncmd
 declare upsmonpwd
 declare username
 
+# Debug: Output full configuration
+bashio::log.info "=== Full addon configuration ==="
+bashio::log.info "$(bashio::config)"
+bashio::log.info "=== End of configuration ==="
+
 chown root:root /var/run/nut
 chmod 0770 /var/run/nut
 
@@ -52,41 +57,42 @@ if bashio::config.equals 'mode' 'netserver' ;then
         echo "MAXAGE ${maxage}" >> "${UPSD_CONF}"
     fi
 
-    for device in $(bashio::config "devices|keys"); do
-        upsname=$(bashio::config "devices[${device}].name")
-        upsdriver=$(bashio::config "devices[${device}].driver")
-        upsport=$(bashio::config "devices[${device}].port")
-        if bashio::config.has_value "devices[${device}].powervalue"; then
-            upspowervalue=$(bashio::config "devices[${device}].powervalue")
-        else
-            upspowervalue="1"
-        fi
+    # Hardcoded configuration for RICHCOMM UPS USB Mon V2.0
+    bashio::log.info "Configuring hardcoded RICHCOMM UPS device..."
+    {
+        echo
+        echo "[myups]"
+        echo "  driver = nutdrv_qx"
+        echo "  port = auto"
+        echo "  vendorid = 0925"
+        echo "  productid = 1234"
+        echo "  subdriver = armac"
+    } >> /etc/nut/ups.conf
 
-        bashio::log.info "Configuring Device named ${upsname}..."
-        {
-            echo
-            echo "[${upsname}]"
-            echo "  driver = ${upsdriver}"
-            echo "  port = ${upsport}"
-        } >> /etc/nut/ups.conf
-
-        OIFS=$IFS
-        IFS=$'\n'
-        for configitem in $(bashio::config "devices[${device}].config"); do
-            echo "  ${configitem}" >> /etc/nut/ups.conf
-        done
-        IFS="$OIFS"
-
-        echo "MONITOR ${upsname}@localhost ${upspowervalue} upsmonmaster ${upsmonpwd} master" \
-            >> /etc/nut/upsmon.conf
-    done
+    echo "MONITOR myups@localhost 1 upsmonmaster ${upsmonpwd} master" \
+        >> /etc/nut/upsmon.conf
 
     bashio::log.info "Starting the UPS drivers..."
-    # Run upsdrvctl
+    # Run upsdrvctl and capture exit code
+    driver_exit_code=0
     if bashio::debug; then
-        upsdrvctl -u root -D start
+        upsdrvctl -u root -D start || driver_exit_code=$?
     else
-        upsdrvctl -u root start
+        upsdrvctl -u root start || driver_exit_code=$?
+    fi
+    
+    # If driver failed, log warning but continue
+    if [ "${driver_exit_code}" -ne 0 ]; then
+        bashio::log.warning "UPS driver failed to start (exit code: ${driver_exit_code})"
+        bashio::log.warning "This might be due to:"
+        bashio::log.warning "1. USB device not connected or not recognized"
+        bashio::log.warning "2. Insufficient permissions to access USB device"
+        bashio::log.warning "3. Wrong driver or port configuration"
+        bashio::log.warning "Please check your USB connection and addon configuration."
+        bashio::log.warning "Addon will continue to run, but UPS monitoring may not work."
+        bashio::log.warning "To debug, enable 'list_usb_devices: true' in addon configuration."
+    else
+        bashio::log.info "UPS driver started successfully"
     fi
 fi
 
