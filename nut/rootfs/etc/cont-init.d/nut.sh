@@ -39,37 +39,13 @@ if bashio::config.equals 'mode' 'netserver' ;then
         echo "  upsmon master"
     } >> "${USERS_CONF}"
 
-    for user in $(bashio::config "users|keys"); do
-        bashio::config.require.username "users[${user}].username"
-        username=$(bashio::config "users[${user}].username")
-
-        bashio::log.info "Configuring user: ${username}"
-        if ! bashio::config.true 'i_like_to_be_pwned'; then
-            bashio::config.require.safe_password "users[${user}].password"
-        else
-            bashio::config.require.password "users[${user}].password"
-        fi
-        password=$(bashio::config "users[${user}].password")
-
-        {
-            echo
-            echo "[${username}]"
-            echo "  password = ${password}"
-        } >> "${USERS_CONF}"
-
-        for instcmd in $(bashio::config "users[${user}].instcmds"); do
-            echo "  instcmds = ${instcmd}" >> "${USERS_CONF}"
-        done
-
-        for action in $(bashio::config "users[${user}].actions"); do
-            echo "  actions = ${action}" >> "${USERS_CONF}"
-        done
-
-        if bashio::config.has_value "users[${user}].upsmon"; then
-            upsmon=$(bashio::config "users[${user}].upsmon")
-            echo "  upsmon ${upsmon}" >> "${USERS_CONF}"
-        fi
-    done
+    # Create hardcoded user
+    {
+        echo
+        echo "[nut]"
+        echo "  password = nut"
+        echo "  instcmds = all"
+    } >> "${USERS_CONF}"
 
     if bashio::config.has_value "upsd_maxage"; then
         maxage=$(bashio::config "upsd_maxage")
