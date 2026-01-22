@@ -8,7 +8,6 @@ RUN \
     apt-get update \
     && apt-get install -y --no-install-recommends \
         nut=2.8.1-5 \
-        nut-server=2.8.1-5 \
         nut-snmp=2.8.1-5 \
         nut-xml=2.8.1-5 \
         nut-modbus=2.8.1-5 \
