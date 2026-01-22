@@ -105,16 +105,20 @@ if bashio::config.equals 'mode' 'netserver' ;then
             >> /etc/nut/upsmon.conf
     done
 
-    bashio::log.info "Connected USB devices:"
-    lsusb
+    # Show detailed USB info for UPS device if found
+    if lsusb | grep -q "0925:1234"; then
+        bashio::log.info "Detailed USB information for UPS device (0925:1234):"
+        lsusb -d 0925:1234 -v 2>/dev/null || true
+    fi
+
+    bashio::log.info "Generated UPS configuration (/etc/nut/ups.conf):"
+    cat /etc/nut/ups.conf | while IFS= read -r line; do
+        bashio::log.info "  ${line}"
+    done
 
     bashio::log.info "Starting the UPS drivers..."
-    # Run upsdrvctl
-    if bashio::debug; then
-        upsdrvctl -u root -D start
-    else
-        upsdrvctl -u root start
-    fi
+    # Run upsdrvctl with debug flag for detailed logging
+    upsdrvctl -u root -D start
 fi
 
 shutdowncmd="/run/s6/basedir/bin/halt"

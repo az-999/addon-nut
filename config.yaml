@@ -1,0 +1,17 @@
+users:
+  - username: nut
+    password: nut
+    instcmds:
+      - all
+    actions: []
+devices:
+  - name: exegate
+    driver: nutdrv_qx
+    port: auto
+    config:
+      - vendorid = 0925
+      - productid = 1234
+mode: netserver
+shutdown_host: false
+i_like_to_be_pwned: true
+list_usb_devices: true
