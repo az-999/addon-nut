@@ -127,3 +127,10 @@ SOFTWARE.
 [releases-shield]: https://img.shields.io/github/release/hassio-addons/addon-nut.svg
 [releases]: https://github.com/hassio-addons/addon-nut/releases
 [repository]: https://github.com/hassio-addons/repository
+
+
+Используйте дополнение для терминала:
+ha security options --pwned=False
+
+Проверить:
+ha sec info
