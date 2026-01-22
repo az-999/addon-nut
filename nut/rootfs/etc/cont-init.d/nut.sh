@@ -105,6 +105,9 @@ if bashio::config.equals 'mode' 'netserver' ;then
             >> /etc/nut/upsmon.conf
     done
 
+    bashio::log.info "Connected USB devices:"
+    lsusb
+
     bashio::log.info "Starting the UPS drivers..."
     # Run upsdrvctl
     if bashio::debug; then
